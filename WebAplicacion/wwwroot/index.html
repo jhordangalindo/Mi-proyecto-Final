@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Análisis de Riesgo País</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg,#0d6efd,#001f3f);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+
+        .container {
+            width: 900px;
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.4);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .search {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        input {
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            width: 220px;
+        }
+
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #00c6ff;
+            color: white;
+            cursor: pointer;
+            margin-left: 10px;
+            font-weight: bold;
+        }
+
+        .result-box {
+            background: rgba(255,255,255,0.15);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        td {
+            padding: 8px;
+            border-bottom: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .charts {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+        }
+
+        .chart-card {
+            flex: 1;
+            height: 260px;
+            position: relative;
+            background: rgba(255,255,255,0.15);
+            border-radius: 15px;
+            padding: 15px;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        .score-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%,-50%);
+            font-size: 32px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <h1>🌍 Análisis de Riesgo País</h1>
+
+        <div class="search">
+            <input id="countryInput" placeholder="Ej: Colombia">
+            <button onclick="analyzeCountry()">Analizar</button>
+        </div>
+
+        <div class="result-box">
+            <table>
+                <tr><td><b>País</b></td><td id="countryCell">-</td></tr>
+                <tr><td><b>Región</b></td><td id="regionCell">-</td></tr>
+                <tr><td><b>Población</b></td><td id="populationCell">-</td></tr>
+                <tr><td><b>Economic Score</b></td><td id="scoreCell">-</td></tr>
+                <tr><td><b>Nivel de Riesgo</b></td><td id="riskCell">-</td></tr>
+                <tr><td><b>Recomendación IA</b></td><td id="recommendationCell">-</td></tr>
+            </table>
+        </div>
+
+        <div class="charts">
+
+            <div class="chart-card">
+                <canvas id="scoreChart"></canvas>
+                <div id="scoreText" class="score-center"></div>
+            </div>
+
+            <div class="chart-card">
+                <canvas id="trendChart"></canvas>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+
+        let scoreChart;
+        let trendChart;
+
+        async function analyzeCountry() {
+
+            const country = document.getElementById("countryInput").value;
+
+            if (!country) {
+                alert("Ingrese un país");
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/Risk/${country}`);
+                if (!response.ok) throw new Error("Error API");
+
+                const data = await response.json();
+
+                document.getElementById("countryCell").innerText = data.country;
+                document.getElementById("regionCell").innerText = data.region;
+                document.getElementById("populationCell").innerText = data.population.toLocaleString();
+                document.getElementById("scoreCell").innerText = data.economicScore;
+                document.getElementById("riskCell").innerText = data.riskLevel;
+                document.getElementById("recommendationCell").innerText = data.recommendation;
+
+                createScoreChart(data.economicScore);
+                createTrendChart(data.economicScore);
+
+            } catch (error) {
+                alert("No se pudo analizar el país");
+            }
+        }
+
+        function createScoreChart(score) {
+
+            const ctx = document.getElementById("scoreChart").getContext("2d");
+            if (scoreChart) scoreChart.destroy();
+
+            document.getElementById("scoreText").innerText = score;
+
+            scoreChart = new Chart(ctx, {
+                type: "doughnut",
+                data: {
+                    datasets: [{
+                        data: [score, 100 - score],
+                        backgroundColor: [
+                            score >= 80 ? "#00ff88" :
+                                score >= 60 ? "#ffc107" : "#ff4d4d",
+                            "rgba(255,255,255,0.1)"
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "75%"
+                }
+            });
+        }
+
+        function createTrendChart(score) {
+
+            const ctx = document.getElementById("trendChart").getContext("2d");
+            if (trendChart) trendChart.destroy();
+
+            trendChart = new Chart(ctx, {
+                type: "line",
+                data: {
+                    labels: ["2020", "2021", "2022", "2023", "2024"],
+                    datasets: [{
+                        label: "Tendencia",
+                        data: [score - 10, score - 6, score - 3, score - 1, score],
+                        borderColor: "#00c6ff",
+                        backgroundColor: "rgba(0,198,255,0.2)",
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false
+                }
+            });
+        }
+
+    </script>
+
+</body>
+</html>
